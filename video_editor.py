@@ -30,12 +30,13 @@ class Model:
 
     def get_all_videos_from_dir(self):
         """Получает список роликов для создания финального видео"""
-        for video in os.listdir(self.video_directory_path):
-            video_path = f'{self.video_directory_path}/{video}'
-            if video.endswith(VIDEO_EXTENSIONS) \
-                    and video_path != self.first_video_path \
-                    and video_path != self.second_video_path:
-                self.video_list.append(video_path)
+        if self.video_directory_path:
+            for video in os.listdir(self.video_directory_path):
+                video_path = f'{self.video_directory_path}/{video}'
+                if video.endswith(VIDEO_EXTENSIONS) \
+                        and video_path != self.first_video_path \
+                        and video_path != self.second_video_path:
+                    self.video_list.append(video_path)
 
     def set_video_directory_path(self, video_directory_path):
         self.video_directory_path = video_directory_path
@@ -103,7 +104,8 @@ class View:
         self.all_videos_frame = tk.Frame(self.root)
         self.all_videos_frame.pack(fill=X)
 
-        self.videos_folder_label = tk.Label(self.all_videos_frame, width=27, text="Папка с исходными видео:", anchor="w")
+        self.videos_folder_label = tk.Label(self.all_videos_frame, width=27, text="Папка с исходными видео:",
+                                            anchor="w")
         self.videos_folder_entry = tk.Entry(self.all_videos_frame, width=50, state="readonly")
         self.all_videos_folder_button = tk.Button(self.all_videos_frame, text="...",
                                                   command=self.update_video_directory_path)
@@ -116,7 +118,8 @@ class View:
         self.result_video_frame = tk.Frame(self.root)
         self.result_video_frame.pack(fill=X)
 
-        self.result_folder_label = tk.Label(self.result_video_frame, width=27, text="Папка для итогового видео:", anchor="w")
+        self.result_folder_label = tk.Label(self.result_video_frame, width=27, text="Папка для итогового видео:",
+                                            anchor="w")
         self.result_folder_entry = tk.Entry(self.result_video_frame, width=50, state="readonly")
         self.result_folder_button = tk.Button(self.result_video_frame, text="...",
                                               command=self.update_result_directory_path)
