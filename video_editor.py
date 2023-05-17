@@ -4,22 +4,27 @@ import tkinter as tk
 from tkinter import filedialog, X, LEFT, messagebox as mb
 import ffmpeg
 import check_user_input as check
+import json_manager as jm
+
 
 # расширения видеофайлов
-VIDEO_EXTENSIONS = ('.mp4', '.avi', '.MOV', '.mkv')
+VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv')
 # расширения видеофайлов для выбора видеороликов пользователем
-VIDEO_FORMATS = (("MP4 files", "*.mp4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"), ("MKV files", "*mkv"))
+VIDEO_FORMATS = (("mp4 files", "*.mp4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"), ("MKV files", "*mkv"))
 
 
 class Model:
     def __init__(self):
-        self.video_directory_path = ""      # папка с исходными видео
-        self.result_directory_path = ""     # папка для финального видео
+        self.video_directory_path = ""  # папка с исходными видео
+        self.result_directory_path = ""  # папка для финального видео
         self.first_video_path = ""          # путь к первому видео для финального ролика
         self.second_video_path = ""         # путь ко второму видео для финального ролика
         self.target_duration = 0            # требуемая длина финального видео
         self.result_name = ""               # название финального видеоролика
         self.video_list = []                # список видео для формирования финального ролика
+
+        self.max_height = 0
+        self.max_width = 0
 
     @staticmethod
     def __get_video_duration(video_path):
@@ -33,7 +38,7 @@ class Model:
         if self.video_directory_path:
             for video in os.listdir(self.video_directory_path):
                 video_path = f'{self.video_directory_path}/{video}'
-                if video.endswith(VIDEO_EXTENSIONS) \
+                if video.lower().endswith(VIDEO_EXTENSIONS) \
                         and video_path != self.first_video_path \
                         and video_path != self.second_video_path:
                     self.video_list.append(video_path)
@@ -56,17 +61,22 @@ class Model:
     def set_result_name(self, result_name):
         self.result_name = result_name
 
+    def get_video_directory_path(self):
+        return self.video_directory_path
+
+    def get_result_directory_path(self):
+        return self.result_directory_path
+
     def create_video(self):
         """Генерирует видеоролик по заданным параметрам"""
 
         # присоединение первого видео к финальному ролику
         concat_video_list = [ffmpeg.input(self.first_video_path)]
         duration = self.__get_video_duration(self.first_video_path)
-
         # присоединение второго видео к финальному ролику, если к нему указан путь
         if self.second_video_path:
             duration += self.__get_video_duration(self.second_video_path)
-            concat_video_list.append(ffmpeg.input(self.second_video_path))
+            concat_video_list.append(ffmpeg.input(self.second_video_path).filter('scale', '1920x1080').filter('setsar', '1/1'))
 
         # присоединение видео из списка до достижения требуемой длины финального ролика
         while duration <= self.target_duration and self.video_list:
@@ -77,19 +87,24 @@ class Model:
 
         # склейка финального видеоролика и сохранение его в указанной папке
         output_file = self.result_directory_path + f'/{self.result_name}.mp4'
-        ffmpeg.concat(*concat_video_list).output(output_file, video_size='1920x1080').run()
+        ffmpeg.concat(*concat_video_list).output(output_file).run()
 
 
 class View:
+    def on_closing(self):
+        self.controller.save_json(bool(self.save_videos_path.get()), self.save_result_path.get())
+        self.root.destroy()
 
     def __init__(self, controller):
         self.controller = controller
 
         self.root = tk.Tk()
+        self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
+
         self.root.title('Генератор видеороликов')
         self.root.geometry("560x250")
-        self.root.minsize(560, 250)
-        self.root.maxsize(560, 250)
+        self.root.minsize(590, 250)
+        self.root.maxsize(590, 250)
 
         self.__init_video_folder_ui()
         self.__init_result_folder_ui()
@@ -101,6 +116,8 @@ class View:
 
     def __init_video_folder_ui(self):
         """Инициализирует виджеты для выбора и отображения папки с исходными видео"""
+        self.save_videos_path = tk.IntVar()
+
         self.all_videos_frame = tk.Frame(self.root)
         self.all_videos_frame.pack(fill=X)
 
@@ -109,12 +126,17 @@ class View:
         self.videos_folder_entry = tk.Entry(self.all_videos_frame, width=50, state="readonly")
         self.all_videos_folder_button = tk.Button(self.all_videos_frame, text="...",
                                                   command=self.update_video_directory_path)
+        self.save_videos_path_ch = tk.Checkbutton(self.all_videos_frame, variable=self.save_videos_path)
+
         self.videos_folder_label.pack(side=LEFT, padx=5, pady=5)
+        self.save_videos_path_ch.pack(side=LEFT, padx=5)
         self.videos_folder_entry.pack(side=LEFT, fill=X, expand=True)
         self.all_videos_folder_button.pack(padx=5)
 
     def __init_result_folder_ui(self):
         """Инициализирует виджеты для выбора и отображения папки для финального видео"""
+        self.save_result_path = tk.IntVar()
+
         self.result_video_frame = tk.Frame(self.root)
         self.result_video_frame.pack(fill=X)
 
@@ -123,7 +145,10 @@ class View:
         self.result_folder_entry = tk.Entry(self.result_video_frame, width=50, state="readonly")
         self.result_folder_button = tk.Button(self.result_video_frame, text="...",
                                               command=self.update_result_directory_path)
+        self.result_videos_path_ch = tk.Checkbutton(self.result_video_frame, variable=self.save_result_path)
+
         self.result_folder_label.pack(side=LEFT, padx=5, pady=5)
+        self.result_videos_path_ch.pack(side=LEFT, padx=5)
         self.result_folder_entry.pack(side=LEFT, fill=X, expand=True)
         self.result_folder_button.pack(side=LEFT, padx=5)
 
@@ -247,23 +272,50 @@ class View:
         self.second_video_path_entry.insert(0, second_video_path)
         self.second_video_path_entry.config(state='readonly')
 
+    def set_save_videos_path_ch_true(self):
+        self.save_videos_path.set(1)
+
+    def set_save_result_path_ch_true(self):
+        self.save_result_path.set(1)
+
     def create_video_click(self):
         self.controller.create_video()
 
     def show_success_window(self):
         mb.showinfo("Успех!", "Видео создано")
 
-    def show_error_window(self):
-        mb.showinfo("Ошибка!", "Видео не было создано")
+    def show_error_window(self, error_text):
+        mb.showinfo("Ошибка!", error_text)
 
 
 class Controller:
     def __init__(self):
         self.model = Model()
         self.view = View(self)
+        self.json_manager = jm.JsonManager()
+        self.get_saved_paths()
 
     def run(self):
         self.view.root.mainloop()
+
+    def get_saved_paths(self):
+        video_directory_path, result_directory_path = self.json_manager.get_data()
+
+        self.show_video_directory_path(video_directory_path)
+        self.show_result_directory_path(result_directory_path)
+
+        self.model.set_video_directory_path(video_directory_path)
+        self.model.set_result_directory_path(result_directory_path)
+
+    def save_json(self, save_videos_path, save_result_path):
+        video_directory_path = self.model.video_directory_path
+        result_directory_path = self.model.result_directory_path
+        if not save_videos_path:
+            video_directory_path = ""
+        if not save_result_path:
+            result_directory_path = ""
+
+        self.json_manager.update_json(video_directory_path, result_directory_path)
 
     def check_input_is_valid(self):
         """Проверяет все введенные пользователем данные"""
@@ -322,13 +374,28 @@ class Controller:
         self.model.set_second_video_path(path)
         self.view.show_second_video_path(path)
 
+    def show_video_directory_path(self, path):
+        if path:
+            self.view.show_all_videos_path(path)
+            self.view.set_save_videos_path_ch_true()
+
+    def show_result_directory_path(self, path):
+        if path:
+            self.view.show_result_video_path(path)
+            self.view.set_save_result_path_ch_true()
+
     def create_video(self):
         if self.check_input_is_valid():
             try:
                 self.model.create_video()
                 self.view.show_success_window()
-            except:
-                self.view.show_error_window()
+            except FileNotFoundError:
+                error_text = "Не установлены необходимые библиотеки!\n" \
+                             "Видео не было создано."
+                self.view.show_error_window(error_text)
+            except Exception as e:
+                error_text = str(e)
+                self.view.show_error_window(error_text)
 
 
 if __name__ == "__main__":
