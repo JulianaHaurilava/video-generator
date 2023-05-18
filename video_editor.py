@@ -13,6 +13,7 @@ VIDEO_FORMATS = (("MP4 files", "*.MP4"), ("MOV files", "*.MOV"), ("AVI files", "
 
 class Model:
     def __init__(self):
+        self.video_generator = None
         self.video_directory_path = ""      # папка с исходными видео
         self.result_directory_path = ""     # папка для финального видео
         self.first_video_path = ""          # путь к первому видео для финального ролика
@@ -20,7 +21,7 @@ class Model:
         self.target_duration = 0            # требуемая длина финального видео
         self.bitrate = 0                    # битрейт
         self.result_name = ""               # название финального видеоролика
-        self.video_list = []
+        self.video_list = []                # список видео без первого и второго для создания финального ролика
 
     def set_video_directory_path(self, video_directory_path):
         self.video_directory_path = video_directory_path
@@ -64,9 +65,10 @@ class Model:
 
     def try_create_video(self):
         """Запускает процесс генерации видео"""
-        self.vid_con = vc.VideoConcatenator(self.result_directory_path, self.first_video_path, self.second_video_path,
-                                            self.target_duration, self.bitrate, self.result_name, self.video_list)
-        return self.vid_con.start_video_creation()
+        self.video_generator = vc.VideoConcatenator(self.result_directory_path, self.first_video_path,
+                                                    self.second_video_path, self.target_duration, self.bitrate,
+                                                    self.result_name, self.video_list)
+        return self.video_generator.start_video_creation()
 
 
 class View:
@@ -174,6 +176,7 @@ class View:
         self.second_label.pack(side=LEFT, padx=5, pady=5)
 
     def __init_bitrate_ui(self):
+        """Инициализирует виджеты для ввода битрейта финального видеоролика"""
         self.bitrate_frame = tk.Frame(self.root)
         self.bitrate_frame.pack(fill=tk.X)
 
@@ -276,13 +279,16 @@ class View:
         self.controller.create_video()
 
     def show_success_window(self):
+        """Выводит сообщение об успешном создании видеоролика"""
         mb.showinfo("Успех!", "Видео создано")
 
     def show_error_window(self, error_text):
+        """Выводит сообщение о том, что видеоролик не создан и текст ошибки"""
         mb.showerror("Ошибка!", error_text)
 
     def show_warning_window(self, error_text):
-        mb.showwarning("Ошибка!", error_text)
+        """Выводит предупреждение о том, что видеоролик мог быть сгенерирован с ошибками"""
+        mb.showwarning("Предупреждение!", error_text)
 
 
 class Controller:
@@ -298,14 +304,16 @@ class Controller:
     def get_saved_paths(self):
         video_directory_path, result_directory_path = self.json_manager.get_data()
 
-        self.show_video_directory_path(video_directory_path)
-        self.show_result_directory_path(result_directory_path)
+        # отображает сохраненные директории и чекбоксы на экране
+        self.show_saved_video_directory_path(video_directory_path)
+        self.show_saved_result_directory_path(result_directory_path)
 
+        # устанавливает значение директориям в Модели
         self.model.set_video_directory_path(video_directory_path)
         self.model.set_result_directory_path(result_directory_path)
 
     def save_json(self, save_videos_path, save_result_path):
-        """Отображает путь ко второму видео для финального ролика"""
+        """Сохраняет json с данными о сохраненных директориях"""
         video_directory_path = self.model.video_directory_path
         result_directory_path = self.model.result_directory_path
         if not save_videos_path:
@@ -376,17 +384,18 @@ class Controller:
         self.model.set_second_video_path(path)
         self.view.show_second_video_path(path)
 
-    def show_video_directory_path(self, path):
+    def show_saved_video_directory_path(self, path):
         if path:
             self.view.show_all_videos_path(path)
             self.view.set_save_videos_path_ch_true()
 
-    def show_result_directory_path(self, path):
+    def show_saved_result_directory_path(self, path):
         if path:
             self.view.show_result_video_path(path)
             self.view.set_save_result_path_ch_true()
 
     def create_video(self):
+        """Генерирует видео и информирует пользователя о результате"""
         if self.check_input_is_valid():
             error_text = self.model.try_create_video()
             if error_text:
