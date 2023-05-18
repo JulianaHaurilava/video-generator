@@ -1,16 +1,14 @@
 import os
-import random
 import tkinter as tk
-from tkinter import filedialog, X, LEFT, messagebox as mb, HORIZONTAL, RIGHT
-import ffmpeg
+from tkinter import filedialog, X, LEFT, messagebox as mb
 import check_user_input as check
 import json_manager as jm
-
+import video_concatenator as vc
 
 # расширения видеофайлов
 VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv')
 # расширения видеофайлов для выбора видеороликов пользователем
-VIDEO_FORMATS = (("mp4 files", "*.mp4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"), ("MKV files", "*mkv"))
+VIDEO_FORMATS = (("MP4 files", "*.MP4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"), ("MKV files", "*mkv"))
 
 
 class Model:
@@ -22,24 +20,7 @@ class Model:
         self.target_duration = 0            # требуемая длина финального видео
         self.bitrate = 0                    # битрейт
         self.result_name = ""               # название финального видеоролика
-        self.video_list = []                # список видео для формирования финального ролика
-
-    @staticmethod
-    def __get_video_duration(video_path):
-        """Возвращает длительность видеоролика"""
-        probe = ffmpeg.probe(video_path)
-        duration = float(probe["format"]["duration"])
-        return duration
-
-    def get_all_videos_from_dir(self):
-        """Получает список роликов для создания финального видео"""
-        if self.video_directory_path:
-            for video in os.listdir(self.video_directory_path):
-                video_path = f'{self.video_directory_path}/{video}'
-                if video.lower().endswith(VIDEO_EXTENSIONS) \
-                        and video_path != self.first_video_path \
-                        and video_path != self.second_video_path:
-                    self.video_list.append(video_path)
+        self.video_list = []
 
     def set_video_directory_path(self, video_directory_path):
         self.video_directory_path = video_directory_path
@@ -68,28 +49,20 @@ class Model:
     def get_result_directory_path(self):
         return self.result_directory_path
 
+    def get_all_videos_from_dir(self):
+        """Получает список роликов для создания финального видео"""
+        if self.video_directory_path:
+            for video in os.listdir(self.video_directory_path):
+                video_path = f'{self.video_directory_path}/{video}'
+                if video.lower().endswith(VIDEO_EXTENSIONS) \
+                        and video_path != self.first_video_path \
+                        and video_path != self.second_video_path:
+                    self.video_list.append(video_path)
+
     def create_video(self):
-        """Генерирует видеоролик по заданным параметрам"""
-
-        # присоединение первого видео к финальному ролику
-        concat_video_list = [ffmpeg.input(self.first_video_path)]
-        duration = self.__get_video_duration(self.first_video_path)
-        # присоединение второго видео к финальному ролику, если к нему указан путь
-        if self.second_video_path:
-            duration += self.__get_video_duration(self.second_video_path)
-            stream = ffmpeg.input(self.second_video_path).filter(bitrate=f"{self.bitrate}k")
-            concat_video_list.append(ffmpeg.input(self.second_video_path).filter('scale', '1920x1080').filter('setsar', '1/1'))
-
-        # присоединение видео из списка до достижения требуемой длины финального ролика
-        while duration <= self.target_duration and self.video_list:
-            video = random.choice(self.video_list)
-            concat_video_list.append(ffmpeg.input(video))
-            self.video_list.remove(video)
-            duration += self.__get_video_duration(video)
-
-        # склейка финального видеоролика и сохранение его в указанной папке
-        output_file = self.result_directory_path + f'/{self.result_name}.mp4'
-        ffmpeg.concat(*concat_video_list).output(output_file).run()
+        self.vid_con = vc.VideoConcatenator(self.result_directory_path, self.first_video_path, self.second_video_path,
+                                            self.target_duration, self.bitrate, self.result_name, self.video_list)
+        self.vid_con.start_video_creation()
 
 
 class View:

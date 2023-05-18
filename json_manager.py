@@ -1,9 +1,11 @@
 import json
+import os
 
 
 class JsonManager:
     def __init__(self):
-        self.file_name = "json_saved_paths"
+        self.folder_path = "data"
+        self.file_name = "data/json_saved_paths"
         self.json = {}
 
     def update_json(self, video_directory_path, result_directory_path):
@@ -18,12 +20,17 @@ class JsonManager:
             json.dump(self.json, f)
 
     def get_data(self):
+        if not os.path.exists(self.folder_path):
+            os.makedirs(self.folder_path)
         try:
             with open(self.file_name, "r") as f:
                 data = json.load(f)
         except FileNotFoundError:
             with open(self.file_name, "w") as f:
-                json.dump({}, f)
+                json.dump({
+                    "video_directory_path": "",
+                    "result_directory_path": ""
+                }, f)
             with open(self.file_name, "r") as f:
                 data = json.load(f)
         return data["video_directory_path"], data["result_directory_path"]
