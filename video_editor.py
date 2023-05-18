@@ -49,6 +49,9 @@ class Model:
     def get_result_directory_path(self):
         return self.result_directory_path
 
+    def get_result_name(self):
+        return self.result_name
+
     def get_all_videos_from_dir(self):
         """Получает список роликов для создания финального видео"""
         if self.video_directory_path:
@@ -59,14 +62,16 @@ class Model:
                         and video_path != self.second_video_path:
                     self.video_list.append(video_path)
 
-    def create_video(self):
+    def try_create_video(self):
+        """Запускает процесс генерации видео"""
         self.vid_con = vc.VideoConcatenator(self.result_directory_path, self.first_video_path, self.second_video_path,
                                             self.target_duration, self.bitrate, self.result_name, self.video_list)
-        self.vid_con.start_video_creation()
+        return self.vid_con.start_video_creation()
 
 
 class View:
     def on_closing(self):
+        """Обновление json-файла при завершении программы"""
         self.controller.save_json(bool(self.save_videos_path.get()), self.save_result_path.get())
         self.root.destroy()
 
@@ -274,7 +279,10 @@ class View:
         mb.showinfo("Успех!", "Видео создано")
 
     def show_error_window(self, error_text):
-        mb.showinfo("Ошибка!", error_text)
+        mb.showerror("Ошибка!", error_text)
+
+    def show_warning_window(self, error_text):
+        mb.showwarning("Ошибка!", error_text)
 
 
 class Controller:
@@ -297,6 +305,7 @@ class Controller:
         self.model.set_result_directory_path(result_directory_path)
 
     def save_json(self, save_videos_path, save_result_path):
+        """Отображает путь ко второму видео для финального ролика"""
         video_directory_path = self.model.video_directory_path
         result_directory_path = self.model.result_directory_path
         if not save_videos_path:
@@ -379,16 +388,19 @@ class Controller:
 
     def create_video(self):
         if self.check_input_is_valid():
-            try:
-                self.model.create_video()
+            error_text = self.model.try_create_video()
+            if error_text:
+                if os.path.exists(f"{self.model.get_result_directory_path()}/{self.model.get_result_name()}"):
+                    error_text = f"{error_text}\n" \
+                                "Видео могло сгенерироваться некорректно."
+                    self.view.show_warning_window(error_text)
+                else:
+                    error_text = f"{error_text}\n" \
+                                 "Видео не было создано."
+                    self.view.show_error_window(error_text)
+
+            else:
                 self.view.show_success_window()
-            except FileNotFoundError:
-                error_text = "Не установлены необходимые библиотеки!\n" \
-                             "Видео не было создано."
-                self.view.show_error_window(error_text)
-            except Exception as e:
-                error_text = str(e)
-                self.view.show_error_window(error_text)
 
 
 if __name__ == "__main__":
