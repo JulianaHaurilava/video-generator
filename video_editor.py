@@ -1,7 +1,7 @@
 import os
 import random
 import tkinter as tk
-from tkinter import filedialog, X, LEFT, messagebox as mb
+from tkinter import filedialog, X, LEFT, messagebox as mb, HORIZONTAL, RIGHT
 import ffmpeg
 import check_user_input as check
 import json_manager as jm
@@ -15,16 +15,14 @@ VIDEO_FORMATS = (("mp4 files", "*.mp4"), ("MOV files", "*.MOV"), ("AVI files", "
 
 class Model:
     def __init__(self):
-        self.video_directory_path = ""  # папка с исходными видео
-        self.result_directory_path = ""  # папка для финального видео
+        self.video_directory_path = ""      # папка с исходными видео
+        self.result_directory_path = ""     # папка для финального видео
         self.first_video_path = ""          # путь к первому видео для финального ролика
         self.second_video_path = ""         # путь ко второму видео для финального ролика
         self.target_duration = 0            # требуемая длина финального видео
+        self.bitrate = 0                    # битрейт
         self.result_name = ""               # название финального видеоролика
         self.video_list = []                # список видео для формирования финального ролика
-
-        self.max_height = 0
-        self.max_width = 0
 
     @staticmethod
     def __get_video_duration(video_path):
@@ -61,6 +59,9 @@ class Model:
     def set_result_name(self, result_name):
         self.result_name = result_name
 
+    def set_bitrate(self, bitrate):
+        self.bitrate = int(bitrate)
+
     def get_video_directory_path(self):
         return self.video_directory_path
 
@@ -76,6 +77,7 @@ class Model:
         # присоединение второго видео к финальному ролику, если к нему указан путь
         if self.second_video_path:
             duration += self.__get_video_duration(self.second_video_path)
+            stream = ffmpeg.input(self.second_video_path).filter(bitrate=f"{self.bitrate}k")
             concat_video_list.append(ffmpeg.input(self.second_video_path).filter('scale', '1920x1080').filter('setsar', '1/1'))
 
         # присоединение видео из списка до достижения требуемой длины финального ролика
@@ -103,14 +105,15 @@ class View:
 
         self.root.title('Генератор видеороликов')
         self.root.geometry("560x250")
-        self.root.minsize(590, 250)
-        self.root.maxsize(590, 250)
+        self.root.minsize(590, 290)
+        self.root.maxsize(590, 290)
 
         self.__init_video_folder_ui()
         self.__init_result_folder_ui()
         self.__init_first_video_path_ui()
         self.__init_second_video_path_ui()
         self.__init_duration_ui()
+        self.__init_bitrate_ui()
         self.__init_result_name_ui()
         self.__init_create_video_button_ui()
 
@@ -192,6 +195,16 @@ class View:
         self.duration_entry.pack(side=LEFT)
         self.second_label.pack(side=LEFT, padx=5, pady=5)
 
+    def __init_bitrate_ui(self):
+        self.bitrate_frame = tk.Frame(self.root)
+        self.bitrate_frame.pack(fill=tk.X)
+
+        self.bitrate_label = tk.Label(self.bitrate_frame, width=26, text="Битрейт:", anchor="w")
+        self.bitrate_scale = tk.Scale(self.bitrate_frame, from_=16, to=512, orient=tk.HORIZONTAL)
+
+        self.bitrate_label.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bitrate_scale.pack(side=tk.LEFT, padx=5, pady=5, expand=True, fill=X)
+
     def __init_result_name_ui(self):
         """Инициализирует виджеты для ввода названия финального видеоролика"""
         self.result_name_frame = tk.Frame(self.root)
@@ -243,6 +256,9 @@ class View:
 
     def get_result_name(self):
         return self.result_name_entry.get()
+
+    def get_bitrate(self):
+        return self.bitrate_scale.get()
 
     def show_all_videos_path(self, all_videos_path):
         """Отображает путь к выбранной папке с исходными видео"""
@@ -349,6 +365,7 @@ class Controller:
         # инициализация переменных в Model
         self.set_duration(self.view.get_duration())
         self.set_result_name(self.view.get_result_name())
+        self.set_bitrate((self.view.get_bitrate()))
 
         return True
 
@@ -357,6 +374,9 @@ class Controller:
 
     def set_result_name(self, result_name):
         self.model.set_result_name(result_name)
+
+    def set_bitrate(self, bitrate):
+        self.model.set_bitrate(bitrate)
 
     def set_video_directory_path(self, path):
         self.model.set_video_directory_path(path)
