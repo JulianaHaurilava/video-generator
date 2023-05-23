@@ -3,6 +3,7 @@ import random
 import threading
 import tkinter as tk
 from tkinter import ttk
+import subprocess
 
 
 class VideoConcatenator:
@@ -47,25 +48,39 @@ class VideoConcatenator:
         self.progress_bar['value'] = progress
         self.sb_root.update_idletasks()
 
+    def create_command(self, concat_video_list, output_file) :
+        video_input = ""
+        video_streams = ""
+        video_streams_es = ""
+        n = len(concat_video_list)
+        for i, video in enumerate(concat_video_list) :
+            video_input += f"-i {video} "
+            video_streams += f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1,setsar=1,fps=30,format=yuv420p[v{i}];"
+            video_streams_es += f"[v{i}][{i}:a]"
+        result_command = f'ffmpeg {video_input} -filter_complex ' \
+                         f'"{video_streams}{video_streams_es}concat=n={n}:v=1:a=1[v][a]" ' \
+                         f'-map "[v]" -map "[a]" -c:v libx264 -b:v {self.bitrate}k -c:a aac -movflags +faststart {output_file}'
+        return result_command
+
     def create_video(self):
         """Генерирует видеоролик по заданным параметрам"""
         self.error_text = ""
         try:
             # присоединение первого ролика в список генерации
-            concat_video_list = [ffmpeg.input(self.first_video_path)]
+            concat_video_list = [self.first_video_path]
             duration = self.__get_video_duration(self.first_video_path)
             pb_duration = 2
 
             # присоединение второго ролика в список генерации если требуется
             if self.second_video_path:
                 duration += self.__get_video_duration(self.second_video_path)
-                concat_video_list.append(ffmpeg.input(self.second_video_path))
+                concat_video_list.append(self.second_video_path)
                 pb_duration += 1
 
             # присоединение роликов из списка в рандомном порядке до достижения требуемой длины
             while duration <= self.target_duration and self.video_list:
                 video = random.choice(self.video_list)
-                concat_video_list.append(ffmpeg.input(video))
+                concat_video_list.append(video)
                 self.video_list.remove(video)
                 duration += self.__get_video_duration(video)
                 pb_duration += 1
@@ -73,22 +88,16 @@ class VideoConcatenator:
             # установка максимального значения шкалы progress bar
             self.progress_bar["maximum"] = pb_duration
 
-            scaled_videos = []  # список видео, соответствующих заданным условиям
-
-            # подгон видеороликов под размер 1920х1080 и sar 1:1
-            for index, video_input in enumerate(concat_video_list, start=1):
-                scaled_stream = video_input.filter('scale', f'{self.__video_width}x{self.__video_height}')\
-                    .filter('setsar', self.__sar)
-                # ffmpeg.output(scaled_stream, output_file, b=f"{self.bitrate}k").run()
-                scaled_videos.append(scaled_stream)
-                self.update_progress(index)
-
             # генерация пути к финальному ролику
             output_file = self.result_directory_path + f'/{self.result_name}.mp4'
 
-            # генерация ролика
-            ffmpeg.concat(*scaled_videos).output(output_file, b=f"{self.bitrate}k").run()
+            filename = "data/tempfile.txt"
+            with open(filename, 'w') as f:
+                for video in concat_video_list:
+                    print(f"file '{video}'", file=f)
 
+            # генерация ролика
+            subprocess.run(self.create_command(concat_video_list, output_file))
             # завершение шкалы progress bar
             self.update_progress(pb_duration)
 
