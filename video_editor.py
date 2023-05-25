@@ -1,6 +1,6 @@
 import os
 import tkinter as tk
-from tkinter import filedialog, X, LEFT, messagebox as mb
+from tkinter import filedialog, X, LEFT, messagebox as mb, DISABLED, NORMAL
 import check_user_input as check
 import json_manager as jm
 import video_concatenator as vc
@@ -47,11 +47,8 @@ class Model:
     def get_video_directory_path(self):
         return self.video_directory_path
 
-    def get_result_directory_path(self):
-        return self.result_directory_path
-
-    def get_result_name(self):
-        return self.result_name
+    def get_result_path(self):
+        return f"{self.result_directory_path}/{self.result_name}.mp4"
 
     def get_all_videos_from_dir(self):
         """Получает список роликов для создания финального видео"""
@@ -290,6 +287,12 @@ class View:
         """Выводит предупреждение о том, что видеоролик мог быть сгенерирован с ошибками"""
         mb.showwarning("Предупреждение!", error_text)
 
+    def disable_create_video_button(self):
+        self.create_video_button.config(state=DISABLED)
+
+    def enable_create_video_button(self):
+        self.create_video_button.config(state=NORMAL)
+
 
 class Controller:
     def __init__(self):
@@ -331,17 +334,25 @@ class Controller:
                                                        self.model.result_directory_path)
         all_videos_error_text = check.validate_video_directory_path(self.model.video_directory_path,
                                                                     self.model.video_list)
+        result_directory_error_text = check.validate_result_directory_path(self.model.result_directory_path)
 
         if all_videos_error_text:
             mb.showerror("Ошибка!", all_videos_error_text)
             return False
 
-        if not self.model.result_directory_path:
-            mb.showerror("Ошибка!", "Поле папки для финального видеоролика должно быть заполнено")
+        if result_directory_error_text:
+            mb.showerror("Ошибка!", result_directory_error_text)
             return False
 
         if not self.model.first_video_path:
             mb.showerror("Ошибка!", "Поле первого видео должно быть заполнено")
+            return False
+        elif not os.path.exists(self.model.first_video_path):
+            mb.showerror("Ошибка!", "Первое видео не найдено по указанному пути")
+            return False
+
+        if self.model.second_video_path and not os.path.exists(self.model.second_video_path):
+            mb.showerror("Ошибка!", "Второе видео не найдено по указанному пути")
             return False
 
         if duration_error_text:
@@ -397,19 +408,25 @@ class Controller:
     def create_video(self):
         """Генерирует видео и информирует пользователя о результате"""
         if self.check_input_is_valid():
+            self.view.disable_create_video_button()
             error_text = self.model.try_create_video()
-            if error_text:
-                if os.path.exists(f"{self.model.get_result_directory_path()}/{self.model.get_result_name()}"):
+            video_path = self.model.get_result_path()
+            if not os.path.exists(video_path):
+                if error_text:
+                    error_text = f"{error_text}\n" \
+                                 "Видео не было создано."
+                    self.view.show_error_window(error_text)
+                else:
+                    error_text = "Видео не было создано."
+                    self.view.show_error_window(error_text)
+            else:
+                if error_text:
                     error_text = f"{error_text}\n" \
                                 "Видео могло сгенерироваться некорректно."
                     self.view.show_warning_window(error_text)
                 else:
-                    error_text = f"{error_text}\n" \
-                                 "Видео не было создано."
-                    self.view.show_error_window(error_text)
-
-            else:
-                self.view.show_success_window()
+                    self.view.show_success_window()
+            self.view.enable_create_video_button()
 
 
 if __name__ == "__main__":
