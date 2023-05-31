@@ -1,6 +1,21 @@
 import os
 
 
+def validate_bitrate(bitarate_str):
+    """Проверка введенного битрейта итогового видеоролика"""
+    if not bitarate_str:
+        return "Поле битрейта должно быть заполнено"
+    try:
+        bitrate = int(bitarate_str)
+    except ValueError:
+        return "Введенное значение битрейта должно быть положительным числом"
+    except OverflowError:
+        return "Введенное значение битрейта слишком большое"
+    if not 300 <= bitrate <= 10000:
+        return "Введенное значение битрейта не лежит в диапазоне от 300 до 10000"
+    return ""
+
+
 def validate_duration(duration_str):
     """Проверка введенной длительности итогового видеоролика"""
     if not duration_str:

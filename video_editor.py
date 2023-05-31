@@ -81,9 +81,8 @@ class View:
         self.root.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         self.root.title('Генератор видеороликов')
-        self.root.geometry("560x250")
-        self.root.minsize(590, 290)
-        self.root.maxsize(590, 290)
+        self.root.minsize(600, 310)
+        self.root.maxsize(600, 310)
 
         self.__init_video_folder_ui()
         self.__init_result_folder_ui()
@@ -165,7 +164,7 @@ class View:
         self.duration_frame.pack(fill=X)
 
         self.duration_label = tk.Label(self.duration_frame, width=27, text="Длительность итогового видео:", anchor="w")
-        self.duration_entry = tk.Entry(self.duration_frame, width=5)
+        self.duration_entry = tk.Entry(self.duration_frame, width=6)
         self.second_label = tk.Label(self.duration_frame, text="c", anchor="w")
 
         self.duration_label.pack(side=LEFT, padx=5, pady=5)
@@ -177,10 +176,23 @@ class View:
         self.bitrate_frame = tk.Frame(self.root)
         self.bitrate_frame.pack(fill=tk.X)
 
-        self.bitrate_label = tk.Label(self.bitrate_frame, width=26, text="Битрейт:", anchor="w")
-        self.bitrate_scale = tk.Scale(self.bitrate_frame, from_=16, to=512, orient=tk.HORIZONTAL)
+        self.bitrate_scale_frame = tk.Frame(self.root)
+        self.bitrate_scale_frame.pack(fill=tk.X)
+
+        self.bitrate_label = tk.Label(self.bitrate_frame, width=27, text="Битрейт:", anchor="w")
+
+        self.bitrate_entry_label = tk.Label(self.bitrate_frame, text="k", anchor="w")
+        self.bitrate_entry = tk.Entry(self.bitrate_frame, width=6)
+        self.bitrate_entry.bind("<KeyRelease>", self.update_bitrate_scale)
 
         self.bitrate_label.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bitrate_entry.pack(side=LEFT)
+        self.bitrate_entry_label.pack(side=LEFT, padx=5, pady=5)
+
+        self.empty_label = tk.Label(self.bitrate_scale_frame, width=26, anchor="w")
+        self.empty_label.pack(side=tk.LEFT, padx=5, pady=5)
+        self.bitrate_scale = tk.Scale(self.bitrate_scale_frame, from_=300, to=10000, orient=tk.HORIZONTAL,
+                                      command=self.update_bitrate_entry)
         self.bitrate_scale.pack(side=tk.LEFT, padx=5, pady=5, expand=True, fill=X)
 
     def __init_result_name_ui(self):
@@ -229,6 +241,16 @@ class View:
                                           filetypes=VIDEO_FORMATS)
         self.controller.set_second_video_path(path)
 
+    def update_bitrate_scale(self, event):
+        bitrate = self.bitrate_entry.get()
+        is_correct = bool(check.validate_bitrate(bitrate))
+        if not is_correct:
+            self.bitrate_scale.set(int(bitrate))
+
+    def update_bitrate_entry(self, value):
+        self.bitrate_entry.delete(0, 'end')
+        self.bitrate_entry.insert(0, str(value))
+
     def get_duration(self):
         return self.duration_entry.get()
 
@@ -236,7 +258,7 @@ class View:
         return self.result_name_entry.get()
 
     def get_bitrate(self):
-        return self.bitrate_scale.get()
+        return self.bitrate_entry.get()
 
     def show_all_videos_path(self, all_videos_path):
         """Отображает путь к выбранной папке с исходными видео"""
@@ -330,6 +352,7 @@ class Controller:
         """Проверяет все введенные пользователем данные"""
         self.model.get_all_videos_from_dir()
         duration_error_text = check.validate_duration(self.view.get_duration())
+        bitrate_error_text = check.validate_bitrate(self.view.get_bitrate())
         name_error_text = check.validate_new_file_name(self.view.get_result_name(),
                                                        self.model.result_directory_path)
         all_videos_error_text = check.validate_video_directory_path(self.model.video_directory_path,
@@ -359,6 +382,10 @@ class Controller:
             mb.showerror("Ошибка!", duration_error_text)
             return False
 
+        if bitrate_error_text:
+            mb.showerror("Ошибка!", bitrate_error_text)
+            return False
+
         if name_error_text:
             mb.showerror("Ошибка!", name_error_text)
             return False
@@ -366,7 +393,7 @@ class Controller:
         # инициализация переменных в Model
         self.set_duration(self.view.get_duration())
         self.set_result_name(self.view.get_result_name())
-        self.set_bitrate((self.view.get_bitrate()))
+        self.set_bitrate(self.view.get_bitrate())
 
         return True
 

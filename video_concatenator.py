@@ -125,8 +125,8 @@ class VideoConcatenator:
         q = [0]
 
         # генерация видеоролика
-        self.progress_reader_thread = Thread(target=self.progress_reader, args=(process, q))
-        self.progress_reader_thread.start()
+        progress_reader_thread = Thread(target=self.progress_reader, args=(process, q))
+        progress_reader_thread.start()
 
         def get_progress():
             """Получает информацию о статусе формирования видео в процентах"""
@@ -139,14 +139,14 @@ class VideoConcatenator:
                 self.update_progress(progress_percent)
 
             process.stdout.close()
-            self.progress_reader_thread.join()
+            progress_reader_thread.join()
             process.wait()
             self.sb_root.destroy()
             self.sb_root.quit()
 
         # работа прогрессбара
-        self.get_progress_to_bar = Thread(target=get_progress)
-        self.get_progress_to_bar.start()
+        get_progress_to_bar = Thread(target=get_progress)
+        get_progress_to_bar.start()
 
         self.sb_root.mainloop()
 
