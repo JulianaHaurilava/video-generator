@@ -6,7 +6,7 @@ import json_manager as jm
 import video_concatenator as vc
 
 # расширения видеофайлов
-VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv')
+VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.mts')
 # расширения видеофайлов для выбора видеороликов пользователем
 VIDEO_FORMATS = (("MP4 files", "*.MP4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"),
                  ("MKV files", "*mkv"), ("MTS files", "*mts"))

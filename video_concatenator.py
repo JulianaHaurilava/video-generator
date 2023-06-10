@@ -2,11 +2,11 @@ import os
 import ffmpeg
 import random
 import subprocess as sp
-import shlex
 import tkinter as tk
 from tkinter import ttk
 from threading import Thread
-import time
+
+from ffmpeg_progress_yield import FfmpegProgress
 
 
 class VideoConcatenator:
@@ -29,10 +29,6 @@ class VideoConcatenator:
         self.all_videos_file_path = "data/temp_videos_file.txt"
         self.__init_status_bar()
 
-    def on_closing(self):
-        """Не позволяет пользователю закрыть прогрессбар"""
-        pass
-
     @staticmethod
     def __get_abs_path(path):
         return os.path.abspath(path)
@@ -40,7 +36,6 @@ class VideoConcatenator:
     def __init_status_bar(self):
         """Инициализирует виджеты для отображения процесса создания видеоролика"""
         self.sb_root = tk.Tk()
-        self.sb_root.protocol("WM_DELETE_WINDOW", self.on_closing)
         self.sb_root.title("Генерация видео")
         self.progress_bar = ttk.Progressbar(self.sb_root, length=300, mode="determinate")
         self.progress_bar.pack(pady=20)
@@ -58,32 +53,6 @@ class VideoConcatenator:
         probe = ffmpeg.probe(video_path)
         duration = float(probe["format"]["duration"])
         return duration
-
-    @staticmethod
-    def __get_frames_amount(videos):
-        """Возвращает количество фреймов видео"""
-        total_frames = 0
-        for video_path in videos:
-            probe = ffmpeg.probe(video_path)
-            total_frames += int(probe['streams'][0]['nb_frames'])
-        return total_frames
-
-    @staticmethod
-    def progress_reader(procs, q):
-        while True:
-            if procs.poll() is not None:
-                break
-
-            progress_text = procs.stdout.readline()
-
-            if progress_text is None:
-                break
-
-            progress_text = progress_text.decode("utf-8")
-
-            if progress_text.startswith("frame="):
-                frame = int(progress_text.partition('=')[-1])
-                q[0] = frame
 
     def create_concat_video_list(self):
         """Формирует список всех видео для финального ролика"""
@@ -105,14 +74,21 @@ class VideoConcatenator:
         return concat_video_list
 
     def create_video_file(self, concat_video_list):
+        """Формирует файл с путями к видеороликам"""
         try:
+            # попытка создания папки с видео в mts
             os.makedirs(self.mts_files_path)
         except FileExistsError:
             pass
 
+        if os.path.isfile(self.all_videos_file_path):
+            os.remove(self.all_videos_file_path)
+
         with open(self.all_videos_file_path, "w") as f:
             for video_path in concat_video_list:
                 output_file = video_path
+
+                # если файл не требуемого формата, в папке mts_files создается видео mts
                 if not video_path.endswith(".mts"):
                     video_name = os.path.splitext(os.path.basename(video_path))[0]
                     output_file = f'{self.__get_abs_path(self.mts_files_path)}/{video_name}.mts'
@@ -130,29 +106,15 @@ class VideoConcatenator:
         """Генерирует видеоролик по заданным параметрам"""
         concat_video_list = self.create_concat_video_list()
         self.create_video_file(concat_video_list)
-
         cmd = self.create_command()
-        tot_n_frames = self.__get_frames_amount(concat_video_list)
-        process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
-        q = [0]
 
         # генерация видеоролика
-        progress_reader_thread = Thread(target=self.progress_reader, args=(process, q))
-        progress_reader_thread.start()
+        ff = FfmpegProgress(cmd.split())
 
         def get_progress():
             """Получает информацию о статусе формирования видео в процентах"""
-            while True:
-                if process.poll() is not None:
-                    break
-                time.sleep(1)
-                n_frame = q[0]
-                progress_percent = (n_frame / tot_n_frames) * 100
-                self.update_progress(progress_percent)
-
-            process.stdout.close()
-            progress_reader_thread.join()
-            process.wait()
+            for progress in ff.run_command_with_progress():
+                self.update_progress(int(progress))
             self.sb_root.destroy()
             self.sb_root.quit()
 
