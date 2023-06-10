@@ -1,3 +1,4 @@
+import os
 import ffmpeg
 import random
 import subprocess as sp
@@ -9,26 +10,32 @@ import time
 
 
 class VideoConcatenator:
-    def __init__(self, result_directory_path, first_video_path, second_video_path,
-                 target_duration, bitrate, result_name, video_list):
-        self.__video_width = 1920  # требуемая ширина видео
-        self.__video_height = 1080  # требуемая высота видео
-        self.__sar = '1/1'  # sar итогового видео
+    def __init__(self, first_video_path, second_video_path,
+                 target_duration, bitrate, result_path, video_list):
+        self.__video_width = 1920                           # требуемая ширина видео
+        self.__video_height = 1080                          # требуемая высота видео
+        self.__sar = '1/1'                                  # sar итогового видео
 
-        self.video_list = video_list  # список видео для генерации финального ролика
-        self.result_directory_path = result_directory_path  # папка для финального видео
-        self.first_video_path = first_video_path  # путь к первому видео для финального ролика
-        self.second_video_path = second_video_path  # путь ко второму видео для финального ролика
-        self.target_duration = target_duration  # требуемая длина финального видео
-        self.bitrate = bitrate  # битрейт
-        self.result_name = result_name  # название финального видеоролика
+        self.video_list = video_list                        # список видео для генерации финального ролика
+        self.first_video_path = first_video_path            # путь к первому видео для финального ролика
+        self.second_video_path = second_video_path          # путь ко второму видео для финального ролика
+        self.target_duration = target_duration              # требуемая длина финального видео
+        self.bitrate = bitrate                              # битрейт
+        self.result_path = result_path                      # путь к финальному видеоролику
 
-        self.error_text = ""  # резульат генерации ролика
+        self.error_text = ""                                # резульат генерации ролика
+
+        self.mts_files_path = "data/mts_files"
+        self.all_videos_file_path = "data/temp_videos_file.txt"
         self.__init_status_bar()
 
     def on_closing(self):
         """Не позволяет пользователю закрыть прогрессбар"""
         pass
+
+    @staticmethod
+    def __get_abs_path(path):
+        return os.path.abspath(path)
 
     def __init_status_bar(self):
         """Инициализирует виджеты для отображения процесса создания видеоролика"""
@@ -97,29 +104,34 @@ class VideoConcatenator:
             duration += self.__get_video_duration(video)
         return concat_video_list
 
-    def create_command(self, concat_video_list, output_file):
+    def create_video_file(self, concat_video_list):
+        try:
+            os.makedirs(self.mts_files_path)
+        except FileExistsError:
+            pass
+
+        with open(self.all_videos_file_path, "w") as f:
+            for video_path in concat_video_list:
+                output_file = video_path
+                if not video_path.endswith(".mts"):
+                    video_name = os.path.splitext(os.path.basename(video_path))[0]
+                    output_file = f'{self.__get_abs_path(self.mts_files_path)}/{video_name}.mts'
+                    if not os.path.isfile(output_file):
+                        sp.run(f'ffmpeg -i {video_path} -c:v libx264 {output_file}')
+                f.write(f"file '{output_file}'\n")
+
+    def create_command(self):
         """Генерирует команду для создания видеоролика"""
-        video_input = ""
-        video_streams = ""
-        video_streams_es = ""
-        n = len(concat_video_list)
-        for i, video in enumerate(concat_video_list):
-            video_input += f"-i {video} "
-            video_streams += f"[{i}:v]scale=1920:1080:force_original_aspect_ratio=decrease,pad=1920:1080:-1:-1,setsar=1,fps=30,format=yuv420p[v{i}];"
-            video_streams_es += f"[v{i}][{i}:a]"
-        result_command = f'ffmpeg {video_input} -filter_complex ' \
-                         f'"{video_streams}{video_streams_es}concat=n={n}:v=1:a=1[v][a]" ' \
-                         f'-map "[v]" -map "[a]" -c:v libx264 -b:v {self.bitrate}k -c:a aac -movflags +faststart -progress pipe:1 {output_file}'
+        result_command = f'ffmpeg -f concat -safe 0 -i {self.all_videos_file_path} -b:v {self.bitrate}k -s ' \
+                         f'{self.__video_width}x{self.__video_height} -c:a copy {self.result_path}'
         return result_command
 
     def create_video(self):
         """Генерирует видеоролик по заданным параметрам"""
         concat_video_list = self.create_concat_video_list()
+        self.create_video_file(concat_video_list)
 
-        # генерация пути к финальному ролику
-        output_file = self.result_directory_path + f'/{self.result_name}.mp4'
-
-        cmd = self.create_command(concat_video_list, output_file)
+        cmd = self.create_command()
         tot_n_frames = self.__get_frames_amount(concat_video_list)
         process = sp.Popen(shlex.split(cmd), stdout=sp.PIPE)
         q = [0]
@@ -158,4 +170,6 @@ class VideoConcatenator:
             self.error_text = str(e)
         except Exception as e:
             self.error_text = str(e)
-        return self.error_text
+        finally:
+            os.remove(self.all_videos_file_path)
+            return self.error_text

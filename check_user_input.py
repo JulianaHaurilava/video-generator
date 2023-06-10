@@ -35,7 +35,7 @@ def validate_new_file_name(result_name, directory):
     """Проверка введенного названия нового видео"""
     if not all(c.isalnum() or c in ['-', '_', '.'] for c in result_name) or result_name.count('.') > 1:
         return "Название нового видео указано некорректно"
-    if os.path.isfile(os.path.join(directory, result_name.partition('.')[0] + ".mp4")):
+    if os.path.isfile(os.path.join(directory, result_name.partition('.')[0] + ".mts")):
         return "Видео с таким названием уже существует в указанной папке"
     return ""
 

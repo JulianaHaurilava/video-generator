@@ -8,7 +8,8 @@ import video_concatenator as vc
 # расширения видеофайлов
 VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv')
 # расширения видеофайлов для выбора видеороликов пользователем
-VIDEO_FORMATS = (("MP4 files", "*.MP4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"), ("MKV files", "*mkv"))
+VIDEO_FORMATS = (("MP4 files", "*.MP4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"),
+                 ("MKV files", "*mkv"), ("MTS files", "*mts"))
 
 
 class Model:
@@ -21,6 +22,7 @@ class Model:
         self.target_duration = 0            # требуемая длина финального видео
         self.bitrate = 0                    # битрейт
         self.result_name = ""               # название финального видеоролика
+        self.result_path = ""               # путь к итоговому видеоролику
         self.video_list = []                # список видео без первого и второго для создания финального ролика
 
     def set_video_directory_path(self, video_directory_path):
@@ -40,6 +42,7 @@ class Model:
 
     def set_result_name(self, result_name):
         self.result_name = result_name
+        self.result_path = f"{self.result_directory_path}/{self.result_name}.mts"
 
     def set_bitrate(self, bitrate):
         self.bitrate = int(bitrate)
@@ -48,7 +51,7 @@ class Model:
         return self.video_directory_path
 
     def get_result_path(self):
-        return f"{self.result_directory_path}/{self.result_name}.mp4"
+        return self.result_path
 
     def get_all_videos_from_dir(self):
         """Получает список роликов для создания финального видео"""
@@ -62,9 +65,9 @@ class Model:
 
     def try_create_video(self):
         """Запускает процесс генерации видео"""
-        self.video_generator = vc.VideoConcatenator(self.result_directory_path, self.first_video_path,
-                                                    self.second_video_path, self.target_duration, self.bitrate,
-                                                    self.result_name, self.video_list)
+        self.video_generator = vc.VideoConcatenator(self.first_video_path, self.second_video_path,
+                                                    self.target_duration, self.bitrate,
+                                                    self.result_path, self.video_list)
         return self.video_generator.start_video_creation()
 
 
