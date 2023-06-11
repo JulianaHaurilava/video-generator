@@ -42,7 +42,7 @@ class Model:
 
     def set_result_name(self, result_name):
         self.result_name = result_name
-        self.result_path = f"{self.result_directory_path}/{self.result_name}.mts"
+        self.result_path = '{}{}'.format(os.path.join(self.result_directory_path, self.result_name), ".mts")
 
     def set_bitrate(self, bitrate):
         self.bitrate = int(bitrate)

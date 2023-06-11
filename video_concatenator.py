@@ -91,9 +91,13 @@ class VideoConcatenator:
                 # если файл не требуемого формата, в папке mts_files создается видео mts
                 if not video_path.endswith(".mts"):
                     video_name = os.path.splitext(os.path.basename(video_path))[0]
-                    output_file = f'{self.__get_abs_path(self.mts_files_path)}/{video_name}.mts'
+                    output_file = '{}{}'.format(os.path.join(self.__get_abs_path(self.mts_files_path), video_name),
+                                                '.mts')
                     if not os.path.isfile(output_file):
-                        sp.run(f'ffmpeg -i {video_path} -c:v libx264 {output_file}')
+                        try:
+                            sp.run(f'ffmpeg -i "{video_path}" -c:v libx264 "{output_file}"')
+                        except Exception as e:
+                            self.error_text = e
                 f.write(f"file '{output_file}'\n")
 
     def create_command(self):
@@ -113,8 +117,11 @@ class VideoConcatenator:
 
         def get_progress():
             """Получает информацию о статусе формирования видео в процентах"""
-            for progress in ff.run_command_with_progress():
-                self.update_progress(int(progress))
+            try:
+                for progress in ff.run_command_with_progress():
+                    self.update_progress(int(progress))
+            except Exception as e:
+                self.error_text = e
             self.sb_root.destroy()
             self.sb_root.quit()
 
@@ -129,9 +136,9 @@ class VideoConcatenator:
         try:
             self.create_video()
         except ffmpeg.Error as e:
-            self.error_text = str(e)
+            self.error_text = e
         except Exception as e:
-            self.error_text = str(e)
+            self.error_text = e
         finally:
             os.remove(self.all_videos_file_path)
-            return self.error_text
+            return str(self.error_text).strip()
