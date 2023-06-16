@@ -21,7 +21,7 @@ class JsonManager:
 
     def write_json(self):
         """Сохраняет информацию в json-файле"""
-        with open(self.file_path, "w") as f:
+        with open(self.file_path, "w", encoding='utf-8') as f:
             json.dump(self.json, f)
 
     def get_data(self):
@@ -29,11 +29,11 @@ class JsonManager:
         if not os.path.exists(self.folder_path):
             os.makedirs(self.folder_path)
         try:
-            with open(self.file_path, "r") as f:
+            with open(self.file_path, "r", encoding='utf-8') as f:
                 data = json.load(f)
         except FileNotFoundError:
-            with open(self.file_path, "w") as f:
+            with open(self.file_path, "w", encoding='utf-8') as f:
                 json.dump(self.json, f)
-            with open(self.file_path, "r") as f:
+            with open(self.file_path, "r", encoding='utf-8') as f:
                 data = json.load(f)
         return data["video_directory_path"], data["result_directory_path"]

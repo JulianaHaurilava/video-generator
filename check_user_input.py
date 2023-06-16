@@ -33,7 +33,7 @@ def validate_duration(duration_str):
 
 def validate_new_file_name(result_name, directory):
     """Проверка введенного названия нового видео"""
-    if not all(c.isalnum() or c in ['-', '_', '.'] for c in result_name) or result_name.count('.') > 1:
+    if not all(c.isalnum() or c in ['-', '_', '.', ' '] for c in result_name) or result_name.count('.') > 1:
         return "Название нового видео указано некорректно"
     if os.path.isfile(os.path.join(directory, result_name.partition('.')[0] + ".mts")):
         return "Видео с таким названием уже существует в указанной папке"
@@ -55,6 +55,4 @@ def validate_video_directory_path(video_directory_path, video_list):
         return "Папка с видеороликами не найдена по введенному пути"
     if not video_directory_path:
         return "Поле папки с исходными видео должно быть заполнено"
-    elif not video_list:
-        return "В указанной папке нет ни одного видеоролика"
     return ""

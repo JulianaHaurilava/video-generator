@@ -1,12 +1,10 @@
 import os
+from threading import Thread
 import ffmpeg
 import random
 import subprocess as sp
 import tkinter as tk
 from tkinter import ttk
-from threading import Thread
-
-from ffmpeg_progress_yield import FfmpegProgress
 
 
 class VideoConcatenator:
@@ -27,25 +25,28 @@ class VideoConcatenator:
 
         self.mts_files_path = "data/mts_files"
         self.all_videos_file_path = "data/temp_videos_file.txt"
+        self.video_creation_complete = False
         self.__init_status_bar()
-
-    @staticmethod
-    def __get_abs_path(path):
-        return os.path.abspath(path)
 
     def __init_status_bar(self):
         """Инициализирует виджеты для отображения процесса создания видеоролика"""
         self.sb_root = tk.Tk()
-        self.sb_root.title("Генерация видео")
-        self.progress_bar = ttk.Progressbar(self.sb_root, length=300, mode="determinate")
+        self.sb_root.title("Video generation")
+        self.progress_bar = ttk.Progressbar(self.sb_root, length=300, mode="indeterminate")
         self.progress_bar.pack(pady=20)
-        self.error_text = ""  # резульат генерации ролика
-        self.progress_bar["maximum"] = 100
 
-    def update_progress(self, progress):
-        """Обновляет progress_bar для отображения прогресса генерации ролика"""
-        self.progress_bar['value'] = progress
-        self.sb_root.update_idletasks()
+    def start_progress_bar(self):
+        self.sb_root.after(0, self.progress_bar.start, 20)
+        self.sb_root.mainloop()
+
+    def kill_progress_bar(self):
+        self.progress_bar.stop()
+        self.sb_root.destroy()
+        self.sb_root.quit()
+
+    @staticmethod
+    def __get_abs_path(path):
+        return os.path.abspath(path)
 
     @staticmethod
     def __get_video_duration(video_path):
@@ -84,12 +85,12 @@ class VideoConcatenator:
         if os.path.isfile(self.all_videos_file_path):
             os.remove(self.all_videos_file_path)
 
-        with open(self.all_videos_file_path, "w") as f:
+        with open(self.all_videos_file_path, "w", encoding='utf-8') as f:
             for video_path in concat_video_list:
                 output_file = video_path
 
                 # если файл не требуемого формата, в папке mts_files создается видео mts
-                if not video_path.endswith(".mts"):
+                if not video_path.lower().endswith(".mts"):
                     video_name = os.path.splitext(os.path.basename(video_path))[0]
                     output_file = '{}{}'.format(os.path.join(self.__get_abs_path(self.mts_files_path), video_name),
                                                 '.mts')
@@ -102,8 +103,8 @@ class VideoConcatenator:
 
     def create_command(self):
         """Генерирует команду для создания видеоролика"""
-        result_command = f'ffmpeg -f concat -safe 0 -i {self.all_videos_file_path} -b:v {self.bitrate}k -s ' \
-                         f'{self.__video_width}x{self.__video_height} -c:a copy {self.result_path}'
+        result_command = f'ffmpeg -f concat -safe 0 -i "{self.all_videos_file_path}" -b:v {self.bitrate}k -s ' \
+                         f'{self.__video_width}x{self.__video_height} -c:a copy "{self.result_path}"'
         return result_command
 
     def create_video(self):
@@ -113,28 +114,27 @@ class VideoConcatenator:
         cmd = self.create_command()
 
         # генерация видеоролика
-        ff = FfmpegProgress(cmd.split())
-
-        def get_progress():
-            """Получает информацию о статусе формирования видео в процентах"""
-            try:
-                for progress in ff.run_command_with_progress():
-                    self.update_progress(int(progress))
-            except Exception as e:
-                self.error_text = e
-            self.sb_root.destroy()
-            self.sb_root.quit()
-
-        # работа прогрессбара
-        get_progress_to_bar = Thread(target=get_progress)
-        get_progress_to_bar.start()
-
-        self.sb_root.mainloop()
+        sp.call(cmd, shell=True)
+        self.video_creation_complete = True
 
     def start_video_creation(self):
         """Генерирует видеоролик по заданным параметрам"""
         try:
-            self.create_video()
+            thread = Thread(target=self.create_video)
+            thread.start()
+
+            def check_completion():
+                """Отслеживает процесс завершения процесса генерации ролика"""
+                while True:
+                    if self.video_creation_complete:
+                        self.kill_progress_bar()
+                        break
+
+            completion_thread = Thread(target=check_completion)
+            completion_thread.start()
+
+            self.start_progress_bar()
+
         except ffmpeg.Error as e:
             self.error_text = e
         except Exception as e:

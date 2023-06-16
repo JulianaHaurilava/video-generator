@@ -5,10 +5,11 @@ import check_user_input as check
 import json_manager as jm
 import video_concatenator as vc
 
+
 # расширения видеофайлов
 VIDEO_EXTENSIONS = ('.mp4', '.avi', '.mov', '.mkv', '.mts')
 # расширения видеофайлов для выбора видеороликов пользователем
-VIDEO_FORMATS = (("MP4 files", "*.MP4"), ("MOV files", "*.MOV"), ("AVI files", "*.avi"),
+VIDEO_FORMATS = (("MP4 files", "*.mp4"), ("MOV files", "*.mov"), ("AVI files", "*.avi"),
                  ("MKV files", "*mkv"), ("MTS files", "*mts"))
 
 
@@ -55,10 +56,11 @@ class Model:
 
     def get_all_videos_from_dir(self):
         """Получает список роликов для создания финального видео"""
+        self.video_list.clear()
         if self.video_directory_path:
             for video in os.listdir(self.video_directory_path):
                 video_path = f'{self.video_directory_path}/{video}'
-                if video.lower().endswith(VIDEO_EXTENSIONS) \
+                if video_path.lower().endswith(VIDEO_EXTENSIONS) \
                         and video_path != self.first_video_path \
                         and video_path != self.second_video_path:
                     self.video_list.append(video_path)
@@ -353,17 +355,21 @@ class Controller:
 
     def check_input_is_valid(self):
         """Проверяет все введенные пользователем данные"""
+        all_videos_error_text = check.validate_video_directory_path(self.model.video_directory_path,
+                                                                    self.model.video_list)
+        if all_videos_error_text:
+            mb.showerror("Ошибка!", all_videos_error_text)
+            return False
+
         self.model.get_all_videos_from_dir()
         duration_error_text = check.validate_duration(self.view.get_duration())
         bitrate_error_text = check.validate_bitrate(self.view.get_bitrate())
         name_error_text = check.validate_new_file_name(self.view.get_result_name(),
                                                        self.model.result_directory_path)
-        all_videos_error_text = check.validate_video_directory_path(self.model.video_directory_path,
-                                                                    self.model.video_list)
         result_directory_error_text = check.validate_result_directory_path(self.model.result_directory_path)
 
-        if all_videos_error_text:
-            mb.showerror("Ошибка!", all_videos_error_text)
+        if not self.model.video_list:
+            mb.showerror("Ошибка!", "В указанной папке нет ни одного видеоролика")
             return False
 
         if result_directory_error_text:
@@ -440,8 +446,8 @@ class Controller:
         if self.check_input_is_valid():
             self.view.disable_create_video_button()
             error_text = self.model.try_create_video()
-            video_path = self.model.get_result_path()
-            if not os.path.exists(video_path):
+
+            if not os.path.exists(self.model.get_result_path()):
                 if error_text:
                     error_text = f"{error_text}\n" \
                                  "Видео не было создано."
