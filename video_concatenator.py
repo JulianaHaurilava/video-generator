@@ -96,7 +96,7 @@ class VideoConcatenator:
                                                 '.mts').replace("\\", "/")
                     if not os.path.isfile(output_file):
                         try:
-                            sp.run(f'ffmpeg -i "{video_path}" -c:v copy -b:v 10000k "{output_file}"')
+                            sp.run(f'ffmpeg -i "{video_path}" -c:v copy "{output_file}"')
                         except Exception as e:
                             self.error_text = e
                 f.write(f"file '{output_file}'\n")
