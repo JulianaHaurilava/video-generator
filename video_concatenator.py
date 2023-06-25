@@ -93,10 +93,10 @@ class VideoConcatenator:
                 if not video_path.lower().endswith(".mts"):
                     video_name = os.path.splitext(os.path.basename(video_path))[0]
                     output_file = '{}{}'.format(os.path.join(self.__get_abs_path(self.mts_files_path), video_name),
-                                                '.mts')
+                                                '.mts').replace("\\", "/")
                     if not os.path.isfile(output_file):
                         try:
-                            sp.run(f'ffmpeg -i "{video_path}" -c:v libx264 "{output_file}"')
+                            sp.run(f'ffmpeg -i "{video_path}" -c:v copy -b:v 10000k "{output_file}"')
                         except Exception as e:
                             self.error_text = e
                 f.write(f"file '{output_file}'\n")

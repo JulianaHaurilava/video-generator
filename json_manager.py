@@ -31,9 +31,10 @@ class JsonManager:
         try:
             with open(self.file_path, "r", encoding='utf-8') as f:
                 data = json.load(f)
-        except FileNotFoundError:
+        except:
             with open(self.file_path, "w", encoding='utf-8') as f:
                 json.dump(self.json, f)
             with open(self.file_path, "r", encoding='utf-8') as f:
                 data = json.load(f)
+
         return data["video_directory_path"], data["result_directory_path"]
